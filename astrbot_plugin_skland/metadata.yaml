@@ -1,0 +1,6 @@
+name: astrbot_plugin_skland
+display_name: 森空岛签到
+desc: 森空岛自动签到插件，支持明日方舟和终末地签到
+version: v1.0.0
+author: AstrBot
+repo: https://github.com/AstrBotDevs/astrbot_plugin_skland
