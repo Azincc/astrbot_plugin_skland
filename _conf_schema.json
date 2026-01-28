@@ -1,0 +1,14 @@
+{
+  "auto_sign_enabled": {
+    "description": "自动签到开关",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后，将在指定时间自动为所有已注册用户签到，并私发结果给用户"
+  },
+  "auto_sign_hour": {
+    "description": "自动签到时间（小时）",
+    "type": "int",
+    "default": 1,
+    "hint": "自动签到执行的小时（0-23），默认凌晨1点"
+  }
+}
