@@ -177,7 +177,7 @@ class SklandPlugin(Star):
 
     # ==================== Commands ====================
 
-    @filter.command("skd help")
+    @filter.command("skdhelp")
     async def skdhelp(self, event: AstrMessageEvent):
         """森空岛签到插件帮助"""
         yield event.plain_result("森空岛签到插件帮助\n"
