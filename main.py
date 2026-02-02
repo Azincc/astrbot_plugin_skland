@@ -84,7 +84,7 @@ class SklandPlugin(Star):
     def _start_auto_sign_job(self, hour: int = 1):
         """启动自动签到定时任务"""
         hour = max(0, min(23, hour))
-        trigger = CronTrigger(hour=hour, minute=0)
+        trigger = CronTrigger(hour=16, minute=0)
         try:
             self.scheduler.remove_job("skland_auto_sign")
         except Exception:
@@ -96,7 +96,7 @@ class SklandPlugin(Star):
             id="skland_auto_sign",
             misfire_grace_time=3600,
         )
-        logger.info(f"森空岛自动签到任务已启动，每天 {hour:02d}:00 执行")
+        logger.info(f"森空岛自动签到任务已启动，每天 {hour:02d}:0 执行")
 
     async def _auto_sign_all_users(self):
         """为所有已注册用户执行自动签到"""
@@ -184,10 +184,11 @@ class SklandPlugin(Star):
         token = token.strip()
         if not token:
             yield event.plain_result(
-                "请提供token参数\n"
-                "使用方法: /skdlogin <token>\n"
-                "token获取: 登陆 [森空岛](https://www.skland.com/) 后获取token: https://web-api.skland.com/account/info/hg\n"
-                "将token中的{\"content\":\"XXX\"}中的XXX作为参数输入skdlogin，格式skdlogin XXX")
+                "请先获取token，方法如下:\n"
+                "1. 登录 鹰角网络通行证 后，打开 (https://web-api.hypergryph.com/account/info/hg) 记下 content 字段的值（推荐）。"
+                "   或者登录 森空岛网页版 (https://www.skland.com/) 后，打开 (https://web-api.skland.com/account/info/hg) 记下 content 字段的值。\n"
+                "2. 使用方法:\n"
+                "   /skdlogin <content>")
             return
         yield event.plain_result("正在登录并签到，请稍候...")
         try:
