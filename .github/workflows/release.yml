@@ -37,9 +37,6 @@ jobs:
           
           # Create zip archive (directly from root, exclude .git and .github)
           zip -r ${PLUGIN_NAME}-${VERSION}.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc"
-          
-          # Create tar.gz
-          tar -czvf ${PLUGIN_NAME}-${VERSION}.tar.gz --exclude='.git*' --exclude='__pycache__' --exclude='*.pyc' .
 
       - name: Generate changelog
         id: changelog
@@ -58,6 +55,5 @@ jobs:
           prerelease: false
           files: |
             astrbot_plugin_skland-${{ steps.version.outputs.version }}.zip
-            astrbot_plugin_skland-${{ steps.version.outputs.version }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
