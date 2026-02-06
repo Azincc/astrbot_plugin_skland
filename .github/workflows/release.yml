@@ -35,21 +35,11 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           PLUGIN_NAME="astrbot_plugin_skland"
           
-          # Create release directory
-          mkdir -p release/${PLUGIN_NAME}
+          # Create zip archive (directly from root, exclude .git and .github)
+          zip -r ${PLUGIN_NAME}-${VERSION}.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc"
           
-          # Copy plugin files
-          cp -r ${PLUGIN_NAME}/* release/${PLUGIN_NAME}/
-          
-          # Create zip archive
-          cd release
-          zip -r ../${PLUGIN_NAME}-${VERSION}.zip ${PLUGIN_NAME}
-          cd ..
-          
-          # Also create a tar.gz
-          cd release
-          tar -czvf ../${PLUGIN_NAME}-${VERSION}.tar.gz ${PLUGIN_NAME}
-          cd ..
+          # Create tar.gz
+          tar -czvf ${PLUGIN_NAME}-${VERSION}.tar.gz --exclude='.git*' --exclude='__pycache__' --exclude='*.pyc' .
 
       - name: Generate changelog
         id: changelog
