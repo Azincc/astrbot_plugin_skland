@@ -243,6 +243,15 @@ class SklandPlugin(Star):
 
         if is_group:
             # 群聊模式
+            # 如果发送者已绑定，自动添加到该群
+            if user_id in users_data:
+                groups = await self.get_kv_data("groups", {})
+                if group_id not in groups:
+                    groups[group_id] = []
+                if user_id not in groups[group_id]:
+                    groups[group_id].append(user_id)
+                    await self.put_kv_data("groups", groups)
+            
             message_lines = ["📊 森空岛签到统计", "═══════════════", "方舟 | 终末 | 昵称", "-----------------"]
             group_users = (await self.get_kv_data("groups", {})).get(group_id, [])
             for uid in group_users:
