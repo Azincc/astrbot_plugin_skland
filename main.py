@@ -96,7 +96,7 @@ class SklandPlugin(Star):
             id="skland_auto_sign",
             misfire_grace_time=3600,
         )
-        logger.info(f"森空岛自动签到任务已启动，每天 {hour:02d}:0 执行")
+        logger.info(f"森空岛自动签到任务已启动，每天 {hour:02d}:00 执行")
 
     async def _auto_sign_all_users(self):
         """为所有已注册用户执行自动签到"""
