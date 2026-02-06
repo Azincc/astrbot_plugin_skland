@@ -32,9 +32,18 @@ git clone https://github.com/Azincc/astrbot_plugin_skland.git
 
 ## 使用
 
-1. 私聊发送 `skdlogin <你的token>` 进行登录
+### 获取 Token
+
+1. 登录 [森空岛](https://www.skland.com/)
+2. 访问 https://web-api.skland.com/account/info/hg
+3. 找到返回的 JSON 中的 `{"content":"XXX"}`
+4. 复制 `XXX` 部分（这就是你的 token）
+
+### 登录与签到
+
+1. 私聊发送 `/skdlogin <token>` 进行登录（将 `<token>` 替换为上面获取的 XXX）
 2. 登录成功后会自动执行一次签到
-3. 之后可以发送 `skd` 查看签到状态
+3. 之后可以发送 `/skd` 查看签到状态
 
 ## 许可
 
