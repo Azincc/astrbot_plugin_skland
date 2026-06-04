@@ -1,6 +1,6 @@
 name: astrbot_plugin_skland
 display_name: 森空岛签到
-desc: 森空岛签到，支持终末地和明日方舟，支持定时签到
-version: v1.3.0
+desc: 森空岛签到，支持手机号密码、手机号验证码和 token 登录，支持多账号绑定和定时签到
+version: v2.0.0
 author: Azincc
 repo: https://github.com/Azincc/astrbot_plugin_skland

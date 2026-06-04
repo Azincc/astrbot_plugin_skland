@@ -1,39 +1,79 @@
 # AstrBot Plugin - 森空岛签到
 
-[![Build and Release](https://github.com/Azincc/astrbot_plugin_skland/actions/workflows/release.yml/badge.svg)](https://github.com/Azincc/astrbot_plugin_skland/actions/workflows/release.yml)
-
-森空岛自动签到插件，支持明日方舟和终末地签到。
+森空岛自动签到插件，支持手机号密码登录、手机号验证码登录、token 登录、多账号绑定，以及定时签到。当前支持明日方舟和终末地签到结果展示。
 
 ## 功能
 
-- **skd** (群聊):        查看群内所有绑定用户的签到状态
-- **skd** (私聊):        查看自己的签到状态
-- **skdlogin** (私聊):   使用 token 登录并立即签到
-- **skdlogout** (私聊):  登出并移除 token
-- **skdusers** (全部):   查询用户统计，普通用户仅显示签到人数和名额
+- **sky** (私聊): 执行当前已绑定的全部账号签到，并返回签到结果与奖励明细
+- **sky <序号>** (私聊): 只签到指定序号的账号
+- **skypw** (私聊): 输入手机号后，下一条消息输入密码完成登录
+- **skyph** (私聊): 输入手机号后获取验证码，下一条消息输入验证码完成登录
+- **skdlogin** (私聊): 使用 token 登录并立即签到
+- **skylist** (私聊): 查看当前已绑定账号列表和序号
+- **skylogout** (私聊): 退出登录并移除全部绑定
+- **skylogout <序号>** (私聊): 删除指定序号的绑定账号
+- **skyhelp** (全部): 查看命令帮助
 
 ## 使用
 
-### 获取 Token
+### 密码登录
 
-1. 登录 [森空岛](https://www.skland.com/)
-2. 访问 [森空岛/account/info/hg](https://web-api.skland.com/account/info/hg)
-3. 找到返回的 JSON 中的 `{"content":"XXX"}`
-4. 复制 `XXX` 部分
+1. 私聊发送 `/skypw 手机号`
+2. 按提示直接发送密码完成登录
+3. 登录成功后会自动执行一次签到并显示奖励
+4. 可重复为同一聊天用户绑定多个森空岛账号
+5. 发送 `/skylist` 查看当前绑定列表
+6. 发送 `/sky` 执行全部账号签到，或发送 `/sky 2` 只签到第 2 个账号
 
-### 登录与签到
+### 验证码登录
 
-1. 私聊发送 `/skdlogin XXX` 进行登录
-2. 登录成功后会自动执行一次签到
-3. 之后可以发送 `/skd` 查看签到状态
+1. 私聊发送 `/skyph 手机号`
+2. 按提示直接发送验证码完成登录
+3. 登录成功后会自动执行一次签到并显示奖励
+4. 可重复为同一聊天用户绑定多个森空岛账号
+5. 发送 `/skylist` 查看当前绑定列表
+6. 发送 `/sky` 执行全部账号签到，或发送 `/sky 2` 只签到第 2 个账号
+
+### Token 登录
+
+1. 私聊发送 `/skdlogin token`
+2. 登录成功后会自动执行一次签到并显示奖励
+3. 可重复绑定多个 token 账号
+4. 发送 `/skylist` 查看当前绑定列表
+5. 发送 `/sky` 执行全部账号签到，或发送 `/sky 2` 只签到第 2 个账号
+
+### 多账号管理
+
+- 同一聊天用户支持绑定多个森空岛账号
+- 再次绑定相同手机号或相同 token 的账号时会自动更新已有绑定
+- 使用 `/skylist` 查看当前绑定账号及其序号
+- 使用 `/sky 2` 只签到第 2 个账号；不带序号的 `/sky` 会签到全部账号
+- 使用 `/skylogout 2` 删除指定序号的账号
+- 使用 `/skylogout` 清空当前用户的全部绑定
+
+### 定时签到
+
+在插件配置中设置：
+
+- `auto_sign_enabled`：自动签到开关
+- `auto_sign_hour`：自动签到时间（小时，0-23）
+- `auto_sign_minute`：自动签到时间（分钟，0-59）
+- `auto_sign_delay`：每个账号签到前随机延迟秒数
+- `max_users`：最大聊天用户数（0 为不限制）
+
+说明：
+
+- `max_users` 限制的是“可绑定的聊天用户数量”，不是单个用户可绑定的账号数量
+- 单个聊天用户可以绑定多个森空岛账号
+- 定时签到会遍历所有已绑定聊天用户下的全部账号，并通过私聊发送结果
 
 ## 安装
 
 ### 方式一：从 Release 下载
 
-1. 前往 [Releases](https://github.com/Azincc/astrbot_plugin_skland/releases) 页面
+1. 前往 Releases 页面
 2. 下载最新的 `astrbot_plugin_skland-vX.X.X.zip`
-3. 解压到 AstrBot 的 `plugins` 目录
+3. 在 AstrBot 插件页面上传该 zip 安装
 
 ### 方式二：使用 Git
 
