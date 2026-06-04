@@ -3,30 +3,30 @@
     "description": "自动签到开关",
     "type": "bool",
     "default": false,
-    "hint": "开启后，将在指定时间自动为所有已注册用户签到，并私发结果给用户"
-  },
-  "show_player_name": {
-    "description": "显示玩家名称",
-    "type": "bool",
-    "default": true,
-    "hint": "开启后，将在签到结果中默认显示森空岛昵称，否则显示QQ昵称"
+    "hint": "开启后将在设定时间自动为已绑定用户签到，并私发结果"
   },
   "auto_sign_hour": {
     "description": "自动签到时间（小时）",
     "type": "int",
     "default": 9,
-    "hint": "自动签到执行的小时（0-23），默认早上9点"
+    "hint": "范围 0-23，表示每天几点执行自动签到"
+  },
+  "auto_sign_minute": {
+    "description": "自动签到时间（分钟）",
+    "type": "int",
+    "default": 0,
+    "hint": "范围 0-59，表示每天在设定小时的第几分钟执行自动签到"
   },
   "auto_sign_delay": {
-    "description": "自动签到的延迟，防止风控",
+    "description": "自动签到随机延迟",
     "type": "int",
     "default": 10,
-    "hint": "将在签到时进行向后随机延迟，0为不限制（随机范围 0 至 设定的秒数）"
+    "hint": "每个账号签到前随机延迟 0~N 秒，0 表示不延迟"
   },
   "max_users": {
-    "description": "最大登录数量，防止风控",
+    "description": "最大绑定用户数",
     "type": "int",
-    "default": 10,
-    "hint": "将限制登录账户的数量，0为不限制"
+    "default": 20,
+    "hint": "限制可绑定账号的聊天用户数量，0 表示不限制"
   }
 }

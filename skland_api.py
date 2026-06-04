@@ -13,8 +13,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import httpx
 
@@ -25,6 +24,11 @@ from Crypto.Util.Padding import pad
 
 # Constants from Rust source
 USER_AGENT = "Mozilla/5.0 (Linux; Android 12; SM-A5560 Build/V417IR; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/101.0.4951.61 Safari/537.36; SKLand/1.52.1"
+LOGIN_USER_AGENT = "Skland/1.0.1 (com.hypergryph.skland; build:100001014; Android 31; ) Okhttp/4.11.0"
+APP_CODE = "4ca99fa6b56cc2ba"
+LOGIN_CODE_URL = "https://as.hypergryph.com/general/v1/send_phone_code"
+TOKEN_PHONE_CODE_URL = "https://as.hypergryph.com/user/auth/v2/token_by_phone_code"
+TOKEN_PASSWORD_URL = "https://as.hypergryph.com/user/auth/v1/token_by_phone_password"
 
 DES_RULE = {
     "appId": {"cipher": "DES", "is_encrypt": 1, "key": "uy7mzc4h", "obfuscated_name": "xx"},
@@ -93,6 +97,7 @@ class SignInResult:
     channel: str
     awards: list[str] = field(default_factory=list)
     error: str = ""
+    skipped: bool = False
 
 
 @dataclass
@@ -342,27 +347,103 @@ class SklandAPI:
             "dId": did,
         }
 
+    def _get_login_headers(self, did: str) -> dict:
+        """Get headers for Hypergryph account login APIs"""
+        return {
+            "User-Agent": LOGIN_USER_AGENT,
+            "Accept-Encoding": "gzip",
+            "Connection": "close",
+            "dId": did,
+        }
+
+    @staticmethod
+    def _extract_user_token(response: dict, action: str) -> str:
+        if response.get("status") != 0:
+            msg = response.get("msg") or response.get("message") or "Unknown error"
+            raise Exception(f"{action}失败: {msg}")
+        token = response.get("data", {}).get("token")
+        if not token:
+            raise Exception(f"{action}返回缺少 token")
+        return token
+
+    async def send_login_code(self, phone: str):
+        """Send SMS login code to a phone number"""
+        phone = str(phone or "").strip()
+        if not phone:
+            raise Exception("手机号不能为空")
+
+        did = await self.get_device_id()
+        headers = self._get_login_headers(did)
+        response = await self._request(
+            "POST",
+            LOGIN_CODE_URL,
+            headers=headers,
+            json_data={"phone": phone, "type": 2},
+        )
+        if response.get("status") != 0:
+            msg = response.get("msg") or response.get("message") or "Unknown error"
+            raise Exception(f"发送手机验证码失败: {msg}")
+
+    async def login_by_sms(self, phone: str, code: str) -> str:
+        """Login with phone number and SMS code, returning Hypergryph user token"""
+        phone = str(phone or "").strip()
+        code = str(code or "").strip()
+        if not phone:
+            raise Exception("手机号不能为空")
+        if not code:
+            raise Exception("验证码不能为空")
+
+        did = await self.get_device_id()
+        headers = self._get_login_headers(did)
+        response = await self._request(
+            "POST",
+            TOKEN_PHONE_CODE_URL,
+            headers=headers,
+            json_data={"phone": phone, "code": code},
+        )
+        return self._extract_user_token(response, "验证码登录")
+
+    async def login_by_password(self, phone: str, password: str) -> str:
+        """Login with phone number and password, returning Hypergryph user token"""
+        phone = str(phone or "").strip()
+        password = str(password or "").strip()
+        if not phone:
+            raise Exception("手机号不能为空")
+        if not password:
+            raise Exception("密码不能为空")
+
+        did = await self.get_device_id()
+        headers = self._get_login_headers(did)
+        response = await self._request(
+            "POST",
+            TOKEN_PASSWORD_URL,
+            headers=headers,
+            json_data={"phone": phone, "password": password},
+        )
+        return self._extract_user_token(response, "密码登录")
+
     async def get_authorization(self, user_token: str) -> str:
         """Get authorization code from user token"""
         did = await self.get_device_id()
-        headers = self._get_base_headers(did)
+        headers = self._get_login_headers(did)
 
         response = await self._request(
             "POST",
             "https://as.hypergryph.com/user/oauth2/v2/grant",
             headers=headers,
-            json_data={"appCode": "4ca99fa6b56cc2ba", "token": user_token, "type": 0},
+            json_data={"appCode": APP_CODE, "token": user_token, "type": 0},
         )
 
         if response.get("status") != 0:
-            raise Exception(f"Authorization failed: {response.get('message', 'Unknown error')}")
+            msg = response.get("msg") or response.get("message") or "Unknown error"
+            raise Exception(f"Authorization failed: {msg}")
 
         return response["data"]["code"]
 
     async def get_credential(self, authorization: str) -> Credential:
         """Get credential from authorization code"""
         did = await self.get_device_id()
-        headers = self._get_base_headers(did)
+        headers = self._get_login_headers(did)
 
         response = await self._request(
             "POST",
@@ -403,6 +484,101 @@ class SklandAPI:
         return headers
 
     # ==================== Binding & Sign-In ====================
+
+    @staticmethod
+    def _format_award_item(award: dict, resource_map: dict | None = None) -> str:
+        if not isinstance(award, dict):
+            return ""
+
+        resource_map = resource_map or {}
+        resource = award.get("resource") or {}
+        resource_id = str(award.get("id") or award.get("resourceId") or "")
+        if not resource and resource_id:
+            resource = resource_map.get(resource_id) or {}
+
+        name = str(
+            resource.get("name")
+            or award.get("name")
+            or award.get("itemName")
+            or award.get("title")
+            or ""
+        ).strip()
+        if not name:
+            return ""
+
+        count = award.get("count")
+        if count is None:
+            count = award.get("num")
+        if count is None:
+            count = award.get("quantity")
+        if count is None and isinstance(resource, dict):
+            count = resource.get("count")
+
+        if count is None or str(count).strip() == "":
+            return name
+        return f"{name}x{count}"
+
+    def _extract_awards(self, data: dict) -> list[str]:
+        if not isinstance(data, dict):
+            return []
+
+        resource_map = data.get("resourceInfoMap") or {}
+        for key in (
+            "awards",
+            "todayAwards",
+            "currentAwards",
+            "current",
+            "rewardList",
+            "rewards",
+            "items",
+            "list",
+        ):
+            items = data.get(key)
+            if not isinstance(items, list):
+                continue
+            awards = [
+                text
+                for text in (self._format_award_item(item, resource_map) for item in items)
+                if text
+            ]
+            if awards:
+                return awards
+
+        for value in data.values():
+            if isinstance(value, dict):
+                awards = self._extract_awards(value)
+                if awards:
+                    return awards
+        return []
+
+    async def get_arknights_attendance_awards(
+        self,
+        cred: Credential,
+        binding: UserBinding,
+    ) -> list[str]:
+        """Try to read today's Arknights attendance rewards without claiming again."""
+        did = await self.get_device_id()
+        base_url = "https://zonai.skland.com/api/v1/game/attendance"
+        query = urlencode({"gameId": binding.game_id, "uid": binding.uid})
+        url = f"{base_url}?{query}"
+        headers = self._get_signed_headers(url, "GET", None, cred, did)
+
+        response = await self._request("GET", url, headers=headers)
+        logger.info(
+            f"[明日方舟] {binding.nickname} attendance query response: "
+            f"{json.dumps(response, ensure_ascii=False)}"
+        )
+        if response.get("code") != 0:
+            fallback_headers = self._get_base_headers(did)
+            fallback_headers["cred"] = cred.cred
+            response = await self._request("GET", url, headers=fallback_headers)
+            logger.info(
+                f"[明日方舟] {binding.nickname} attendance query fallback response: "
+                f"{json.dumps(response, ensure_ascii=False)}"
+            )
+        if response.get("code") != 0:
+            return []
+        return self._extract_awards(response.get("data", {}))
 
     async def get_binding_list(self, cred: Credential) -> list[UserBinding]:
         """Get user's game bindings"""
@@ -457,19 +633,23 @@ class SklandAPI:
         logger.info(f"[明日方舟] {binding.nickname} sign-in response: {json.dumps(response, ensure_ascii=False)}")
 
         if response.get("code") != 0:
+            error = response.get("message", "Unknown error")
+            awards = []
+            if any(k in str(error) for k in ["已签到", "请勿重复", "重复签到", "签到过", "今日已"]):
+                try:
+                    awards = await self.get_arknights_attendance_awards(cred, binding)
+                except Exception as e:
+                    logger.warning(f"[明日方舟] {binding.nickname} attendance rewards query failed: {e}")
             return SignInResult(
                 success=False,
                 game="明日方舟",
                 nickname=binding.nickname,
                 channel=binding.channel_name,
-                error=response.get("message", "Unknown error"),
+                awards=awards,
+                error=error,
             )
 
-        awards = []
-        for award in response.get("data", {}).get("awards", []):
-            name = award.get("resource", {}).get("name", "Unknown")
-            count = award.get("count", 1)
-            awards.append(f"{name}x{count}")
+        awards = self._extract_awards(response.get("data", {}))
 
         return SignInResult(
             success=True,
@@ -485,15 +665,8 @@ class SklandAPI:
         roles = binding.roles
 
         if not roles:
-            return [
-                SignInResult(
-                    success=False,
-                    game="终末地",
-                    nickname=binding.nickname,
-                    channel=binding.channel_name,
-                    error="没有角色数据",
-                )
-            ]
+            logger.info(f"[终末地] {binding.nickname} has no role data, skip sign-in")
+            return []
 
         did = await self.get_device_id()
         url = "https://zonai.skland.com/web/v1/game/endfield/attendance"
@@ -570,7 +743,7 @@ class SklandAPI:
         if not bindings:
             return [], ""
 
-        nickname = bindings[0].nickname if bindings else ""
+        nickname = next((binding.nickname for binding in bindings if binding.nickname), "")
         results = []
 
         for binding in bindings:
