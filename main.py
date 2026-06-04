@@ -4,6 +4,7 @@ AstrBot Plugin - 森空岛签到 (Skland Sign-In)
 Commands:
 - skypw <手机号> (private): 输入手机号后，下一条私聊消息输入密码完成登录
 - skyph <手机号> (private): 获取验证码后，下一条私聊消息输入验证码完成登录
+- skdlogin <token> (private): 使用 token 登录并立即签到
 - sky (private): 立即签到全部已绑定账号
 - sky <序号> (private): 只签到指定账号
 - skylist (private): 查看当前已绑定账号
@@ -29,7 +30,7 @@ PLUGIN_NAME = "astrbot_plugin_skland"
 PENDING_EXPIRE_SECONDS = 600
 PHONE_RE = re.compile(r"^1\d{10}$")
 COMMAND_TEXT_RE = re.compile(
-    r"^/?(sky|skypw|skyph|skylist|skylogout|skyhelp)(\s|$)",
+    r"^/?(sky|skypw|skyph|skdlogin|skylist|skylogout|skyhelp)(\s|$)",
     re.IGNORECASE,
 )
 
@@ -457,7 +458,8 @@ class SklandPlugin(Star):
             "4. /sky <序号> 只签到指定账号\n"
             "5. /skylist 查看当前绑定账号\n"
             "6. /skylogout 解除全部绑定\n"
-            "7. /skylogout <序号> 删除指定账号绑定"
+            "7. /skylogout <序号> 删除指定账号绑定\n"
+            "8. /skdlogin <token> 使用 token 登录并立即签到"
         )
 
     @filter.command("skylist")
@@ -635,6 +637,71 @@ class SklandPlugin(Star):
             f"登录成功，{action_text}。\n当前共绑定 {len(accounts)} 个账号。\n"
             f"本次账号序号：{idx + 1}\n\n{summaries}\n\n"
             f"【{sign_header}】\n{detail}\n\n发送 /sky 即可签到全部账号。"
+        )
+
+    @filter.command("skdlogin")
+    async def skdlogin(self, event: AstrMessageEvent, token: str = ""):
+        if not self._is_private(event):
+            yield event.plain_result("请在私聊中使用 /skdlogin 登录，避免泄露 token")
+            return
+        token = str(token or "").strip()
+        if not token:
+            yield event.plain_result("请使用：/skdlogin <token>")
+            return
+
+        user_keys = self._build_user_keys(event)
+        if not user_keys:
+            yield event.plain_result("无法识别当前用户，请稍后重试")
+            return
+        user_id = user_keys[0]
+        users = await self.get_kv_data("users", {})
+        config = self._get_config()
+        max_users = int(config.get("max_users", 20))
+        existing_user_key = self._pick_existing_key(users, user_keys)
+        if existing_user_key is None and max_users > 0 and len(users) >= max_users:
+            yield event.plain_result(f"绑定失败：已达到最大用户数限制（{max_users}）")
+            return
+
+        if existing_user_key and existing_user_key != user_id:
+            users[user_id] = users.pop(existing_user_key)
+        user_data = users.get(user_id, {})
+        accounts = self._normalize_accounts(user_data)
+        new_entry = {
+            "token": token,
+            "phone": "",
+            "nickname": "",
+            "bound_at": datetime.now().isoformat(),
+            "last_sign_at": None,
+            "last_results": [],
+            "award_cache": {},
+        }
+
+        yield event.plain_result("正在使用 token 登录并签到，请稍候...")
+        try:
+            ok, detail = await self._do_sign_for_account(new_entry)
+        except Exception as e:
+            yield event.plain_result(f"登录失败：{str(e)}")
+            return
+
+        action, idx = self._upsert_account(accounts, new_entry)
+        user_data.update(
+            {
+                "last_username": event.get_sender_name(),
+                "platform_name": event.get_platform_name(),
+                "umo": event.unified_msg_origin,
+            }
+        )
+        self._store_accounts(user_data, accounts)
+        users[user_id] = user_data
+        await self.put_kv_data("users", users)
+
+        summaries = "\n".join(self._format_account_brief(item, i) for i, item in enumerate(accounts, start=1))
+        action_text = "已更新已有账号" if action == "updated" else "已新增绑定账号"
+        sign_header = "签到成功" if ok else "签到完成，但存在失败项"
+        yield event.plain_result(
+            f"token 登录成功，{action_text}。\n当前共绑定 {len(accounts)} 个账号。\n"
+            f"本次账号序号：{idx + 1}\n\n{summaries}\n\n"
+            f"【{sign_header}】\n{detail}"
         )
 
     @filter.command("skylogout")
