@@ -32,7 +32,7 @@ from .skland_api import SklandAPI
 PLUGIN_NAME = "astrbot_plugin_skland"
 
 
-@register(PLUGIN_NAME, "AstrBot", "森空岛自动签到插件", "1.3.0")
+@register(PLUGIN_NAME, "AstrBot", "森空岛自动签到插件", "1.4.0")
 class SklandPlugin(Star):
     """森空岛签到插件"""
 
