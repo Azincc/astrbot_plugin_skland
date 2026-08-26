@@ -25,6 +25,7 @@ from Crypto.Util.Padding import pad
 
 # Constants from Rust source
 USER_AGENT = "Mozilla/5.0 (Linux; Android 12; SM-A5560 Build/V417IR; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/101.0.4951.61 Safari/537.36; SKLand/1.52.1"
+LOGIN_USER_AGENT = "Skland/1.0.1 (com.hypergryph.skland; build:100001014; Android 31; ) Okhttp/4.11.0"
 
 DES_RULE = {
     "appId": {"cipher": "DES", "is_encrypt": 1, "key": "uy7mzc4h", "obfuscated_name": "xx"},
@@ -342,10 +343,19 @@ class SklandAPI:
             "dId": did,
         }
 
+    def _get_login_headers(self, did: str) -> dict:
+        """Get headers for Hypergryph authentication requests"""
+        return {
+            "User-Agent": LOGIN_USER_AGENT,
+            "Accept-Encoding": "gzip",
+            "Connection": "close",
+            "dId": did,
+        }
+
     async def get_authorization(self, user_token: str) -> str:
         """Get authorization code from user token"""
         did = await self.get_device_id()
-        headers = self._get_base_headers(did)
+        headers = self._get_login_headers(did)
 
         response = await self._request(
             "POST",
@@ -362,7 +372,7 @@ class SklandAPI:
     async def get_credential(self, authorization: str) -> Credential:
         """Get credential from authorization code"""
         did = await self.get_device_id()
-        headers = self._get_base_headers(did)
+        headers = self._get_login_headers(did)
 
         response = await self._request(
             "POST",
