@@ -21,18 +21,63 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Fetch annotated tags
+      - name: Fetch tags
         run: git fetch --tags --force
 
-      - name: Get tag message
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          # Extract tag message from annotated tag
-          TAG_MSG=$(git for-each-ref --format='%(contents)' "refs/tags/$TAG_NAME")
-          if [ -z "$TAG_MSG" ]; then
-            TAG_MSG="Release $TAG_NAME"
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${TAG_NAME}^" 2>/dev/null || true)
+
+          {
+            echo "## 变更内容"
+            echo
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo "自 [${PREVIOUS_TAG}](https://github.com/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${TAG_NAME}) 以来："
+              RANGE="${PREVIOUS_TAG}..${TAG_NAME}"
+            else
+              echo "本次发布包含以下提交："
+              RANGE="${TAG_NAME}"
+            fi
+            echo
+          } > RELEASE_NOTES.md
+
+          FOUND_COMMIT=false
+          while IFS= read -r SHA; do
+            [ -z "$SHA" ] && continue
+            FOUND_COMMIT=true
+
+            SUBJECT=$(git show -s --format=%s "$SHA")
+            SHORT_SHA=${SHA:0:7}
+            AUTHOR_LOGIN=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}" --jq '.author.login // empty' 2>/dev/null || true)
+
+            if [ -n "$AUTHOR_LOGIN" ]; then
+              AUTHOR="[@${AUTHOR_LOGIN}](https://github.com/${AUTHOR_LOGIN})"
+            else
+              AUTHOR_NAME=$(git show -s --format=%an "$SHA")
+              AUTHOR_EMAIL=$(git show -s --format=%ae "$SHA")
+
+              if [[ "$AUTHOR_EMAIL" =~ ^[0-9]+\+([^@]+)@users\.noreply\.github\.com$ ]]; then
+                AUTHOR_LOGIN=${BASH_REMATCH[1]}
+                AUTHOR="[@${AUTHOR_LOGIN}](https://github.com/${AUTHOR_LOGIN})"
+              elif [[ "$AUTHOR_EMAIL" =~ ^([^@]+)@users\.noreply\.github\.com$ ]]; then
+                AUTHOR_LOGIN=${BASH_REMATCH[1]}
+                AUTHOR="[@${AUTHOR_LOGIN}](https://github.com/${AUTHOR_LOGIN})"
+              else
+                AUTHOR="$AUTHOR_NAME"
+              fi
+            fi
+
+            printf -- '- %s — %s ([`%s`](https://github.com/%s/commit/%s))\n' \
+              "$SUBJECT" "$AUTHOR" "$SHORT_SHA" "$GITHUB_REPOSITORY" "$SHA" \
+              >> RELEASE_NOTES.md
+          done < <(git log --reverse --no-merges --format=%H "$RANGE")
+
+          if [ "$FOUND_COMMIT" = false ]; then
+            echo "- 无代码提交" >> RELEASE_NOTES.md
           fi
-          echo "$TAG_MSG" > RELEASE_NOTES.md
 
       - name: Create release package
         run: |
